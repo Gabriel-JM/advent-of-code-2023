@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use itertools::Itertools;
+
 enum CharacterValue {
     Empty,
     Symbol(char),
@@ -57,7 +59,7 @@ fn process(input: &str) -> String {
     }
 
     let mut total = 0;
-    for num_list in numbers {
+    for symbol in map.iter().filter(|(_, value)| matches!(value, CharacterValue::Symbol('*'))) {
         let positions = [
             (1, 0),
             (1, -1),
@@ -69,38 +71,42 @@ fn process(input: &str) -> String {
             (1, 1),
         ];
 
-        let num_positions: Vec<(i32, i32)> = num_list
+        let pos_to_check: Vec<(i32, i32)> = positions
             .iter()
-            .map(|((y, x), _)| (*x as i32, *y as i32))
-            .collect();
-
-        let pos_to_check: Vec<(i32, i32)> = num_list
-            .iter()
-            .flat_map(|(pos, _)| {
-                positions.iter().map(|outer_pos| {
-                    (outer_pos.0 + pos.1 as i32, outer_pos.1 + pos.0 as i32)
-                })
+            .map(|outer_pos| {
+                (outer_pos.0 + symbol.0.1, outer_pos.1 + symbol.0.0)
             })
-            .filter(|num| !num_positions.contains(num))
             .collect();
 
-        let is_part_number = pos_to_check.iter().any(|pos| {
-            let value = map.get(pos);
-            
-            if let Some(CharacterValue::Symbol(_)) = value {
-                true
-            } else {
-                false
+        let mut numbers_index = vec![];
+        
+        for pos in pos_to_check {
+            for (i, num_list) in numbers.iter().enumerate() {
+                if num_list
+                    .iter()
+                    .find(|(num_pos, _)| num_pos == &pos)
+                    .is_some()
+                {
+                    numbers_index.push(i);
+                }
             }
-        });
+        }
 
-        if is_part_number {
-            total += num_list
+        let is_gear = numbers_index.iter().unique().count() == 2;
+
+        if is_gear {
+            total += numbers_index
                 .iter()
-                .map(|(_, num)| num.to_string())
-                .collect::<String>()
-                .parse::<u32>()
-                .unwrap();
+                .unique()
+                .map(|index| {
+                    numbers[*index]
+                        .iter()
+                        .map(|(_, num)| num.to_string())
+                        .collect::<String>()
+                        .parse::<usize>()
+                        .unwrap()
+                })
+                .product::<usize>();
         }
     }
     
@@ -125,6 +131,6 @@ mod tests {
         ...$.*....
         .664.598..";
 
-        assert_eq!("4361", process(input));
+        assert_eq!("467835", process(input));
     }
 }
